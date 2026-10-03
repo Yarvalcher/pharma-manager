@@ -1,0 +1,619 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Single-player tabletop game: take a drug from the lab through clinical trials, financing and launch to generic competition. Calibrated to published industry data.">
+<title>Pharma Manager</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@500;700&display=swap">
+<style>
+/* Layout: tabletop look (single light theme by choice): status chips, board track with a token, action table + finance desk, KPI sheet, ledger, reality check */
+:root{
+  color-scheme:light;
+  --table:#D7E1E6; --board:#EEF3F5; --card:#FFFFFF; --ink:#16202A; --muted:#566573; --line:#16202A;
+  --rd:#7B5CD6; --clin:#2E78C7; --reg:#D9921A; --mkt:#2F9A63; --loe:#8A96A3; --fin:#B4497E;
+  --good:#1F8A55; --bad:#C2413A; --chip:#E4EBEF; --warn:#FFF3DC;
+  --f-display:"Bungee", "Arial Black", Impact, sans-serif;
+  --f-body:"Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+  --f-mono:"JetBrains Mono", ui-monospace, Menlo, monospace;
+  --shadow:4px 4px 0 var(--line);
+}
+*{box-sizing:border-box}
+body{margin:0}
+html,body{background:var(--table);color:var(--ink)}
+body{font-family:var(--f-body);font-size:15px;line-height:1.5}
+.wrap{max-width:1220px;margin:0 auto;padding-inline:16px;padding-block:18px 48px;display:grid;gap:16px}
+h1,h2,h3{margin:0;font-family:var(--f-display);font-weight:400;line-height:1.1;text-wrap:balance}
+h1{font-size:clamp(1.5rem,3.6vw,2.2rem)}
+h2{font-size:1.1rem}
+h3{font-size:.95rem}
+p{margin:0}
+button{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--clin);outline-offset:2px}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.muted{color:var(--muted)}
+.small{font-size:.82rem}
+.kicker{font-family:var(--f-mono);font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+
+/* status bar */
+.top{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between}
+.stats{display:flex;flex-wrap:wrap;gap:8px}
+.stat{background:var(--card);border:2px solid var(--line);border-radius:10px;padding:5px 11px;box-shadow:3px 3px 0 var(--line);min-width:88px}
+.stat span{display:block;font-size:.66rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.stat b{font-family:var(--f-mono);font-size:1rem}
+.stat b.neg{color:var(--bad)}
+
+/* board */
+.board{background:var(--board);border:3px solid var(--line);border-radius:16px;padding:14px;box-shadow:var(--shadow);min-width:0}
+.track{display:grid;grid-template-columns:repeat(14,minmax(66px,1fr));gap:6px;overflow-x:auto;padding:14px 4px 8px}
+.tile{position:relative;border:2px solid var(--line);border-radius:10px;background:var(--card);min-height:84px;padding:6px;display:grid;align-content:space-between;gap:4px}
+.tile .band{height:8px;border-radius:4px;background:var(--c)}
+.tile .nm{font-weight:700;font-size:.76rem;line-height:1.15}
+.tile .od{font-family:var(--f-mono);font-size:.66rem;color:var(--muted);line-height:1.25}
+.tile.done{opacity:.55}
+.tile.here{outline:3px solid var(--c);outline-offset:2px;transform:translateY(-3px);box-shadow:3px 3px 0 var(--line)}
+.tile.dead{background:repeating-linear-gradient(135deg,var(--card) 0 6px,#F3DCDA 6px 12px)}
+.token{position:absolute;top:-13px;right:-8px;width:30px;height:30px;border-radius:50%;background:var(--ink);color:var(--card);display:grid;place-items:center;font-family:var(--f-display);font-size:.62rem;border:2px solid var(--card);box-shadow:2px 2px 0 var(--line);animation:hop .5s ease-out}
+@keyframes hop{0%{transform:translateY(-14px) scale(.7)}60%{transform:translateY(2px)}100%{transform:none}}
+.board-legend{display:flex;flex-wrap:wrap;gap:14px;font-size:.78rem;color:var(--muted);margin-top:4px}
+.board-legend i{display:inline-block;width:12px;height:12px;border-radius:3px;border:1.5px solid var(--line);margin-right:5px;vertical-align:-2px}
+
+/* main */
+.main{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:16px;align-items:start}
+@media (max-width:920px){.main{grid-template-columns:1fr}}
+.side{display:grid;gap:16px;min-width:0}
+.panel{background:var(--card);border:3px solid var(--line);border-radius:16px;padding:16px;box-shadow:var(--shadow);display:grid;gap:14px;min-width:0}
+.panel-head{display:flex;justify-content:space-between;gap:10px;align-items:baseline;flex-wrap:wrap}
+
+.choice-group{display:grid;gap:6px}
+.choices{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
+.choice{border:2px solid var(--line);border-radius:10px;background:var(--card);padding:8px 10px;text-align:left;cursor:pointer;display:grid;gap:2px}
+.choice small{color:var(--muted);font-size:.78rem;line-height:1.3}
+.choice[aria-pressed="true"]{background:var(--ink);color:var(--card)}
+.choice[aria-pressed="true"] small{color:#C9D3DB}
+.choice:not([disabled]):hover{transform:translate(-1px,-1px);box-shadow:2px 2px 0 var(--line)}
+.choice[disabled]{opacity:.45;cursor:not-allowed}
+
+.mol{display:grid;grid-template-columns:auto minmax(0,1fr);gap:14px;align-items:center;border:2px dashed var(--line);border-radius:12px;padding:12px;background:var(--board)}
+.mol svg{width:80px;height:80px}
+.bars{display:grid;gap:5px}
+.bar{display:grid;grid-template-columns:96px minmax(0,1fr) 44px;gap:8px;align-items:center;font-size:.8rem}
+.bar .tr{height:10px;border:1.5px solid var(--line);border-radius:6px;overflow:hidden;background:var(--card)}
+.bar .tr i{display:block;height:100%;background:var(--c)}
+.tags{display:flex;flex-wrap:wrap;gap:6px}
+.tag{font-family:var(--f-mono);font-size:.66rem;padding:2px 7px;border-radius:6px;border:1.5px solid var(--line);background:var(--card)}
+.tag.fin{background:#F7E3EE}
+.tag.good{background:#DFF3E7}
+
+.btn{border:2px solid var(--line);border-radius:10px;padding:9px 15px;background:var(--card);cursor:pointer;font-weight:700;box-shadow:3px 3px 0 var(--line)}
+.btn:not([disabled]):hover{transform:translate(-1px,-1px);box-shadow:4px 4px 0 var(--line)}
+.btn:not([disabled]):active{transform:translate(2px,2px);box-shadow:1px 1px 0 var(--line)}
+.btn.go{background:var(--ink);color:var(--card)}
+.btn.fin{background:var(--fin);color:#fff}
+.btn.ghost{box-shadow:none;border-style:dashed;font-weight:400}
+.btn.sm{padding:6px 10px;font-size:.84rem;box-shadow:2px 2px 0 var(--line)}
+.btn[disabled]{opacity:.45;cursor:not-allowed;box-shadow:none}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+
+.odds{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+@media (max-width:560px){.odds{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.odds div{border:2px solid var(--line);border-radius:10px;padding:7px 10px;background:var(--board);min-width:0}
+.odds span{display:block;font-size:.68rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.odds b{font-family:var(--f-mono);font-size:1.15rem}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}
+.pcard{border:2px solid var(--line);border-radius:12px;padding:10px;background:var(--card);display:grid;gap:4px;cursor:pointer;text-align:left}
+.pcard .t{font-family:var(--f-mono);font-size:.66rem;letter-spacing:.08em;text-transform:uppercase;color:var(--c)}
+.pcard small{color:var(--muted);font-size:.8rem;line-height:1.35}
+.pcard[aria-pressed="true"]{background:var(--ink);color:var(--card);box-shadow:3px 3px 0 var(--c)}
+.pcard[aria-pressed="true"] small{color:#C9D3DB}
+.pcard[disabled]{opacity:.45;cursor:not-allowed}
+.event{border:2px solid var(--line);border-left:10px solid var(--reg);border-radius:10px;padding:9px 12px;background:var(--warn)}
+.event b{display:block}
+.dice-zone{display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+.die{width:84px;height:84px;border:3px solid var(--line);border-radius:16px;display:grid;place-items:center;font-family:var(--f-display);font-size:1.6rem;background:var(--card);box-shadow:var(--shadow);flex:0 0 auto}
+.die.ok{background:#DFF3E7} .die.ko{background:#F7DEDC}
+.verdict{font-weight:700}
+.verdict.ok{color:var(--good)} .verdict.ko{color:var(--bad)}
+
+/* levers */
+.levers{display:grid;gap:12px}
+.lever{display:grid;gap:2px}
+.lever label{display:flex;justify-content:space-between;gap:8px;font-weight:700;font-size:.9rem}
+.lever output{font-family:var(--f-mono)}
+.lever input{width:100%;accent-color:var(--ink)}
+.lever small{color:var(--muted);font-size:.78rem}
+.preview{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}
+@media (max-width:560px){.preview{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.preview div{background:var(--board);border-radius:8px;padding:6px 8px;min-width:0}
+.preview span{display:block;font-size:.64rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.preview b{font-family:var(--f-mono);font-size:.95rem}
+
+/* finance desk */
+.need{border:2px solid var(--line);border-radius:10px;padding:8px 12px;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center;background:var(--board)}
+.need.short{background:#F7DEDC}
+.need.ok{background:#DFF3E7}
+.offer{border:2px solid var(--line);border-left:8px solid var(--fin);border-radius:12px;padding:10px 12px;display:grid;gap:6px}
+.offer h3{font-family:var(--f-body);font-weight:700;font-size:.98rem}
+.offer .ex{font-size:.78rem;color:var(--muted);border-top:1px dashed var(--chip);padding-top:6px}
+.offer .terms{font-size:.86rem}
+.unavail{display:grid;gap:6px;margin-top:6px}
+.unavail div{font-size:.8rem;color:var(--muted)}
+.unavail b{color:var(--ink)}
+details summary{cursor:pointer;font-weight:700}
+.stuck{border:2px solid var(--bad);border-radius:10px;padding:10px 12px;background:#FCEDEC;display:grid;gap:8px}
+
+/* side tables */
+.kpi-wrap{overflow-x:auto}
+table.kpi{border-collapse:collapse;width:100%;font-size:.78rem;min-width:520px}
+.kpi th,.kpi td{border-bottom:1.5px solid var(--chip);padding:5px 6px;text-align:right;white-space:nowrap}
+.kpi th:first-child,.kpi td:first-child{text-align:left}
+.kpi thead th{font-family:var(--f-mono);font-size:.66rem;color:var(--muted);font-weight:500}
+.kpi td{font-family:var(--f-mono)}
+.log{display:grid;gap:6px;max-height:300px;overflow-y:auto;font-size:.84rem;padding-right:4px}
+.log div{border-left:4px solid var(--c,var(--loe));padding:2px 8px;background:var(--board);border-radius:0 6px 6px 0}
+.log .y{font-family:var(--f-mono);font-size:.7rem;color:var(--muted);margin-right:6px}
+.glossary{font-size:.8rem;color:var(--muted);display:grid;gap:3px}
+.glossary b{color:var(--ink);font-family:var(--f-mono)}
+.end{text-align:center;display:grid;gap:10px;justify-items:center}
+.end .big{font-family:var(--f-display);font-size:clamp(1.5rem,5vw,2.1rem)}
+.end-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;width:100%}
+@media (max-width:560px){.end-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.end-grid div{border:2px solid var(--line);border-radius:10px;padding:8px;background:var(--board)}
+.end-grid span{display:block;font-size:.66rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.end-grid b{font-family:var(--f-mono);font-size:1.05rem}
+
+/* reality check */
+.reality summary{font-family:var(--f-display);font-weight:400;font-size:1.05rem}
+.rc-table{overflow-x:auto}
+.rc-table table{border-collapse:collapse;width:100%;font-size:.82rem;min-width:640px}
+.rc-table th,.rc-table td{border-bottom:1.5px solid var(--chip);padding:6px 8px;text-align:left;vertical-align:top}
+.rc-table thead th{font-family:var(--f-mono);font-size:.68rem;color:var(--muted);font-weight:500;text-transform:uppercase;letter-spacing:.05em}
+.rc-table td.n{font-family:var(--f-mono);white-space:nowrap}
+.fit{font-family:var(--f-mono);font-size:.7rem;padding:1px 6px;border-radius:5px;border:1.5px solid var(--line);white-space:nowrap}
+.fit.g{background:#DFF3E7} .fit.a{background:var(--warn)} .fit.r{background:#F7DEDC}
+.notes{display:grid;gap:6px;font-size:.88rem;max-width:80ch;padding-left:18px;margin:0}
+.srcs{display:grid;gap:4px;font-size:.8rem;color:var(--muted);padding-left:18px;margin:0}
+.srcs a{color:var(--clin)}
+@media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div>
+      <span class="kicker">Single‑player tabletop · prototype v2</span>
+      <h1>Pharma Manager</h1>
+    </div>
+    <div class="stats" id="stats"></div>
+  </div>
+
+  <div class="board">
+    <div class="track" id="track"></div>
+    <div class="board-legend">
+      <span><i style="background:var(--rd)"></i>Research</span>
+      <span><i style="background:var(--clin)"></i>Clinical trials</span>
+      <span><i style="background:var(--reg)"></i>Regulatory &amp; launch</span>
+      <span><i style="background:var(--mkt)"></i>Market years</span>
+      <span><i style="background:var(--loe)"></i>Loss of exclusivity</span>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="panel" id="action"></div>
+    <div class="side">
+      <div class="panel" id="finance"></div>
+      <div class="panel">
+        <div class="panel-head"><h2>KPI sheet</h2><span class="kicker">per market year</span></div>
+        <div class="kpi-wrap"><table class="kpi" id="kpi"></table></div>
+        <div class="glossary">
+          <span><b>NBRx</b> new‑to‑brand patients (naive + switch‑in), thousands</span>
+          <span><b>TRx</b> total prescriptions incl. refills, thousands</span>
+          <span><b>Sw‑in / Sw‑out</b> patients won from / lost to competitors</span>
+          <span><b>GTN</b> gross‑to‑net: rebates given to payers for coverage</span>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><h2>Ledger</h2><span class="kicker">newest first</span></div>
+        <div class="log" id="log"></div>
+      </div>
+    </div>
+  </div>
+
+  <details class="panel reality" id="reality">
+    <summary>Reality check and balance test</summary>
+    <p class="muted small">Every number below comes from simulating the game's own rules (20,000 programs per benchmark row, 3,000 full games per strategy) and comparing the output to published data. Money is in 2026 US dollars unless a source year is given.</p>
+    <h3>How the game compares with real data</h3>
+    <div class="rc-table"><table>
+      <thead><tr><th>Metric</th><th>Game</th><th>Real benchmark</th><th>Fit</th></tr></thead>
+      <tbody>
+        <tr><td>Phase I → approval, oncology</td><td class="n">5.0%</td><td>5.3% (BIO 2011–20)</td><td><span class="fit g">close</span></td></tr>
+        <tr><td>Phase I → approval, immunology</td><td class="n">10.0%</td><td>10.7% autoimmune (BIO)</td><td><span class="fit g">close</span></td></tr>
+        <tr><td>Phase I → approval, cardiometabolic</td><td class="n">8.8%</td><td>4.8% cardiovascular, 15.5% metabolic (BIO); game blends both</td><td><span class="fit a">blend</span></td></tr>
+        <tr><td>Phase I → approval, rare disease</td><td class="n">16.0%</td><td>17.0% (BIO)</td><td><span class="fit g">close</span></td></tr>
+        <tr><td>Antibody vs small‑molecule odds</td><td class="n">1.66×</td><td>1.61× (12.1% vs 7.5%, BIO)</td><td><span class="fit g">close</span></td></tr>
+        <tr><td>Genetic‑evidence effect on approval odds</td><td class="n">2.55×</td><td>2.6× (Minikel et al., Nature 2024)</td><td><span class="fit g">close</span></td></tr>
+        <tr><td>Patient‑selection biomarker effect</td><td class="n">2.0×</td><td>2.1× (15.9% vs 7.6%, BIO)</td><td><span class="fit g">close</span></td></tr>
+        <tr><td>Time from Phase I to approval</td><td class="n">10.4–10.7 yrs</td><td>10.5 yrs (BIO)</td><td><span class="fit g">close</span></td></tr>
+        <tr><td>Cost per trial phase</td><td class="n">$35M / $80M / $350M</td><td>$25M / $59M / $255M in 2013 $ (DiMasi 2016), ≈ ×1.38 for 2026</td><td><span class="fit g">anchored</span></td></tr>
+        <tr><td>Out‑of‑pocket R&amp;D per approved drug, incl. failures</td><td class="n">$1.1–3.0B (avg $2.0B)</td><td>$1.4B in 2013 $ ≈ $1.9B today (DiMasi 2016)</td><td><span class="fit g">close</span></td></tr>
+        <tr><td>Capitalised R&amp;D per approved drug (10.5%)</td><td class="n">$2.7–7.7B</td><td>$2.6B in 2013 $ (DiMasi); $2.67B (Deloitte 2025); $1.0–1.6B median/mean in 2018 $, oncology $2.8B (Wouters 2020)</td><td><span class="fit r">high</span></td></tr>
+        <tr><td>Mean peak sales of launched drugs</td><td class="n">$604M</td><td>$598M average forecast peak per late‑stage asset (Deloitte 2025)</td><td><span class="fit g">close</span></td></tr>
+        <tr><td>Launches reaching $1B+ peak</td><td class="n">16%</td><td>23% of 2017–22 launches, by expected peak (ZS)</td><td><span class="fit a">a bit low</span></td></tr>
+        <tr><td>Years to $1B for blockbusters</td><td class="n">~4</td><td>~5, range 4–8 (ZS)</td><td><span class="fit a">a bit fast</span></td></tr>
+        <tr><td>Return on a typical program (IRR)</td><td class="n">2.1–4.6%</td><td>7.0% top‑20 cohort, 2.9% excluding GLP‑1 drugs (Deloitte 2025)</td><td><span class="fit g">close</span></td></tr>
+        <tr><td>Exclusivity after launch</td><td class="n">13 yrs</td><td>13.0–14.1 yrs (Grabowski et al. 2021)</td><td><span class="fit g">anchored</span></td></tr>
+        <tr><td>Brand volume kept 1 yr after generics</td><td class="n">20% (pill)</td><td>18–23% (Grabowski et al. 2021); Humira lost ~60% of net sales to biosimilars (IQVIA)</td><td><span class="fit g">anchored</span></td></tr>
+        <tr><td>Loan cost</td><td class="n">10–14%</td><td>Venture debt 10–13% plus warrants (LifeSciVC); SOFR + 5.75% (Revolution Medicines, 2025)</td><td><span class="fit g">anchored</span></td></tr>
+        <tr><td>Licensing royalty by stage</td><td class="n">7 / 10 / 14%</td><td>6.8 / 9.7 / 14.4% preclinical / Phase I–II / Phase III (LES, 2007–16 deals)</td><td><span class="fit g">anchored</span></td></tr>
+        <tr><td>Priority review voucher</td><td class="n">$150–200M</td><td>$150–160M (2025), $200M (Jazz, 2026)</td><td><span class="fit g">anchored</span></td></tr>
+      </tbody>
+    </table></div>
+
+    <h3>Balance test: 3,000 simulated games per strategy</h3>
+    <p class="muted small">"Selective" bots re‑screen until the indication is at least 0.8× average size. MOIC is your final stake divided by the $800M you started with. Every game allows up to eight screens.</p>
+    <div class="rc-table"><table>
+      <thead><tr><th>Strategy</th><th>Drug approved</th><th>Insolvent</th><th>Median MOIC</th><th>Mean MOIC</th><th>Ends above start</th></tr></thead>
+      <tbody>
+        <tr><td>Take any molecule, raise equity</td><td class="n">68%</td><td class="n">0.3%</td><td class="n">0.17</td><td class="n">2.58</td><td class="n">33%</td></tr>
+        <tr><td>Selective, raise equity</td><td class="n">37%</td><td class="n">0.0%</td><td class="n">0.65</td><td class="n">3.65</td><td class="n">34%</td></tr>
+        <tr><td>Selective + biomarker</td><td class="n">59%</td><td class="n">0.0%</td><td class="n">0.75</td><td class="n">3.12</td><td class="n">43%</td></tr>
+        <tr><td>Selective, borrow first</td><td class="n">36%</td><td class="n">2.7%</td><td class="n">0.65</td><td class="n">3.37</td><td class="n">33%</td></tr>
+        <tr><td>Selective, 50/50 partner at Phase II</td><td class="n">36%</td><td class="n">0.0%</td><td class="n">0.67</td><td class="n">2.56</td><td class="n">37%</td></tr>
+        <tr><td>Selective, out‑license at Phase II</td><td class="n">37%</td><td class="n">0.0%</td><td class="n">0.71</td><td class="n">1.56</td><td class="n">39%</td></tr>
+        <tr><td>Selective, R&amp;D funding for Phase III</td><td class="n">36%</td><td class="n">0.0%</td><td class="n">0.66</td><td class="n">3.60</td><td class="n">34%</td></tr>
+        <tr><td>Novel biology (no genetic evidence)</td><td class="n">15%</td><td class="n">0.1%</td><td class="n">0.52</td><td class="n">2.19</td><td class="n">15%</td></tr>
+        <tr><td>Oncology antibody + biomarker</td><td class="n">50%</td><td class="n">0.2%</td><td class="n">0.75</td><td class="n">3.35</td><td class="n">45%</td></tr>
+        <tr><td>Cardiometabolic small molecule</td><td class="n">31%</td><td class="n">0.2%</td><td class="n">0.57</td><td class="n">3.60</td><td class="n">27%</td></tr>
+        <tr><td>Rare‑disease antibody</td><td class="n">71%</td><td class="n">0.0%</td><td class="n">2.50</td><td class="n">4.04</td><td class="n">69%</td></tr>
+      </tbody>
+    </table></div>
+    <ul class="notes">
+      <li>Running out of cash no longer freezes the game. With the finance desk and the option to abandon a program, simulated companies hit a true dead end in under 0.3% of games.</li>
+      <li>Outcomes are skewed like the real industry: the median company loses money while the mean is pulled up by rare blockbusters.</li>
+      <li>Each lever has a trade‑off. Debt keeps ownership but adds insolvency risk. Partnering and out‑licensing raise the chance of ending above your starting stake but cap the upside.</li>
+      <li>Rare disease is the strongest path, consistent with its higher success rate and cheaper trials. It is the main knob to turn if you want more even areas.</li>
+      <li>Capitalised cost per approval runs high because the game uses 2011–20 success rates (7.9% from Phase I), lower than the 11.8% in the sample behind DiMasi's $2.6B.</li>
+      <li>Area, modality, target and biomarker effects are multiplied together, which assumes they are independent. Market sizes, price levels and the response to each commercial lever are teaching assumptions tuned to match the peak‑sales benchmarks, not measured values.</li>
+    </ul>
+    <h3>Sources</h3>
+    <ol class="srcs">
+      <li><a href="https://go.bio.org/rs/490-EHZ-999/images/ClinicalDevelopmentSuccessRates2011_2020.pdf" target="_blank" rel="noopener">BIO, Informa, QLS: Clinical Development Success Rates 2011–2020</a></li>
+      <li><a href="https://ideas.repec.org/a/nat/nature/v629y2024i8012d10.1038_s41586-024-07316-0.html" target="_blank" rel="noopener">Minikel et al. 2024, Refining the impact of genetic evidence on clinical success, Nature</a></li>
+      <li><a href="https://www.keionline.org/23054" target="_blank" rel="noopener">DiMasi, Grabowski, Hansen 2016 cost estimates (summary)</a>; <a href="https://jamanetwork.com/journals/jama/fullarticle/2762311" target="_blank" rel="noopener">Wouters et al. 2020, JAMA</a></li>
+      <li><a href="https://www.deloitte.com/content/dam/assets-shared/docs/industries/life-sciences-health-care/2026/measuring-the-return-from-pharmaceutical-innovation.pdf" target="_blank" rel="noopener">Deloitte, Measuring the return from pharmaceutical innovation (2026 edition, 2025 data)</a></li>
+      <li><a href="https://www.zs.com/insights/launch-sizes-and-blockbuster-potential" target="_blank" rel="noopener">ZS, Launch sizes and blockbuster potential</a></li>
+      <li><a href="https://www.analysisgroup.com/Insights/publishing/continuing-trends-in-u-s-brand-name-and-generic-drug-competition/" target="_blank" rel="noopener">Grabowski et al. 2021, Continuing trends in U.S. brand‑name and generic drug competition</a>; <a href="https://www.iqvia.com/locations/united-states/blogs/2025/07/the-rules-of-loss-of-exclusivity-are-being-rewritten" target="_blank" rel="noopener">IQVIA 2025 on loss of exclusivity</a></li>
+      <li><a href="https://lifescivc.com/?p=280" target="_blank" rel="noopener">LifeSciVC on venture debt terms</a>; <a href="https://www.royaltypharma.com/news/royalty-pharma-and-revolution-medicines-enter-into-funding-agreements-for-up-to-2-billion/" target="_blank" rel="noopener">Royalty Pharma – Revolution Medicines (2025)</a></li>
+      <li><a href="https://lesi.org/wp-content/uploads/2024/04/effective-royalty-rates-in-biopharma-alliances-what-they-are-why-use-them-in-negotiations.pdf" target="_blank" rel="noopener">LES: effective royalty rates in biopharma alliances</a>; <a href="https://www.goodwinlaw.com/en/insights/publications/2026/03/insights-lifesciences-2025-yir-life-sciences-licensing-collaboration-deals" target="_blank" rel="noopener">Goodwin 2025 licensing review</a></li>
+      <li><a href="https://www.daiichisankyo.com/media/press_release/detail/index_3199.html" target="_blank" rel="noopener">Daiichi Sankyo – AstraZeneca Enhertu deal (2019)</a>; <a href="https://newsroom.regeneron.com/news-releases/news-release-details/regeneron-strengthens-commitment-oncology-through-purchase" target="_blank" rel="noopener">Regeneron buys Libtayo rights (2022)</a>; <a href="https://www.blackstone.com/news/press/blackstone-life-sciences-announces-collaboration-to-support-modernas-influenza-program/" target="_blank" rel="noopener">Blackstone – Moderna (2024)</a></li>
+      <li><a href="https://www.lowenstein.com/news-insights/publications/client-alerts/congress-reauthorizes-pediatric-priority-review-voucher-program-in-fy2026-budget-renewed-incentives-for-rare-pediatric-drug-development-fdalife-sciences" target="_blank" rel="noopener">Pediatric voucher program reauthorised to 2029</a>; <a href="https://www.pharmaceutical-technology.com/news/jpm26-jazz-sells-prv-for-200m-targets-deals-in-2026/" target="_blank" rel="noopener">Recent voucher sale prices</a></li>
+    </ol>
+  </details>
+</div>
+
+<script src="core.js"></script>
+<script>
+(function(){
+"use strict";
+const C = Core;
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const reduce = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+const fm = n => (n<0?"−$":"$")+Math.round(Math.abs(n)).toLocaleString("en-US")+"M";
+const pc = x => Math.round(x*100)+"%";
+let S = C.newGame();
+let draft = null, windArm = false, animating = false;
+
+const MOIC_Q = [[0,0],[10,.02],[25,.13],[50,.45],[75,1.36],[90,4.11],[95,7.70],[99,23.97]];
+function percentile(m){
+  if(m<=0) return 0;
+  for(let i=1;i<MOIC_Q.length;i++){
+    const [p1,v1]=MOIC_Q[i-1],[p2,v2]=MOIC_Q[i];
+    if(m<=v2){ const f = v1>0 ? Math.log(m/v1)/Math.log(v2/v1) : m/v2; return Math.round(p1+(p2-p1)*Math.max(0,Math.min(1,f))); }
+  }
+  return 99;
+}
+const mktLabel = x => x<.5?"Small":x<1?"Medium":x<2?"Large":"Very large";
+const peakCat = p => p<200?"Nano launch":p<500?"Micro launch":p<1000?"First‑run product":p<5000?"Blockbuster":"Mega‑blockbuster";
+const yearNow = () => 2027+Math.floor(S.year);
+
+/* ---------- top-level render ---------- */
+function render(){ renderStats(); renderTrack(); renderAction(); renderFinance(); renderKPI(); renderLog(); }
+function renderStats(){
+  const d=C.debt(S), v=C.alive(S)?C.rnpv(S,false):0, eq=Math.max(0,S.cash-d+v);
+  $("#stats").innerHTML = `
+   <div class="stat"><span>Year</span><b>${yearNow()}</b></div>
+   <div class="stat"><span>Cash</span><b class="${S.cash<0?'neg':''}">${fm(S.cash)}</b></div>
+   <div class="stat"><span>Debt</span><b class="${d>0?'neg':''}">${fm(d)}</b></div>
+   <div class="stat"><span>You own</span><b>${pc(S.own)}</b></div>
+   <div class="stat" title="Your share of cash minus debt plus the asset's risk-adjusted value"><span>Your stake</span><b>${fm(S.own*eq)}</b></div>`;
+}
+function renderTrack(){
+  const T=C.TILES;
+  $("#track").innerHTML = T.map((t,i)=>{
+    const here=i===S.stage, done=i<S.stage;
+    let od="";
+    if(C.DEV.includes(t.k)){
+      if(C.alive(S) && (i>S.stage || (i===S.stage && !S.trial)) && S.stage>0) od=`${C.odds(S,t.k)}%<br>${fm(C.myCost(S,t.k))}`;
+      else if(!C.alive(S) || S.stage===0) od = t.k==="pre"?"69% base":`${C.ALL[t.k]}% base`;
+    } else if(/^y/.test(t.k)) od="sales"; else if(t.k==="mature") od="plateau"; else if(t.k==="lab") od="discovery"; else if(t.k==="launch") od="go to market"; else od="13 yrs in";
+    const tok = S.mol ? esc(S.mol.name.split("-")[0]) : "★";
+    return `<div class="tile ${here?'here':''} ${done?'done':''} ${here&&S.dead?'dead':''}" style="--c:var(${t.c})">
+      <div class="band"></div><div class="nm">${esc(t.n)}</div><div class="od">${od}</div>
+      ${here?`<div class="token" aria-label="You are here">${tok}</div>`:""}</div>`;
+  }).join("");
+  const here=$("#track .here"); if(here && here.scrollIntoView) here.scrollIntoView({block:"nearest",inline:"center",behavior:reduce?"auto":"smooth"});
+}
+function renderKPI(){
+  const h=`<thead><tr><th>Yr</th><th>NBRx</th><th>Sw‑in</th><th>Sw‑out</th><th>TRx</th><th>Persist</th><th>Access</th><th>GTN</th><th>Sales</th><th>${S.outl?"Royalty":"Profit"}</th></tr></thead>`;
+  const rows = S.years.length ? S.years.map(y=>`<tr><td>${esc(y.y)}${y.avg?"*":""}</td><td>${y.nbrx.toFixed(1)}</td><td>${y.sin.toFixed(1)}</td><td>${y.sout.toFixed(1)}</td><td>${y.trx.toFixed(0)}</td><td>${pc(y.pers)}</td><td>${pc(y.cov)}</td><td>${y.gtn!=null?pc(y.gtn):"—"}</td><td>${fm(y.rev)}</td><td style="color:${y.profit>=0?'var(--good)':'var(--bad)'}">${fm(y.profit)}</td></tr>`).join("")
+    : `<tr><td colspan="10" style="text-align:left;color:var(--muted);font-family:var(--f-body)">Reach the market to fill this sheet.</td></tr>`;
+  const foot = S.years.some(y=>y.avg) ? `<tfoot><tr><td colspan="10" style="text-align:left;color:var(--muted);font-family:var(--f-body)">* average per year</td></tr></tfoot>` : "";
+  $("#kpi").innerHTML = h+`<tbody>${rows}</tbody>`+foot;
+}
+function renderLog(){ $("#log").innerHTML = S.log.slice(0,60).map(l=>`<div style="--c:var(${l.c||'--loe'})"><span class="y">${2027+Math.floor(l.y)}</span>${esc(l.t)}</div>`).join(""); }
+
+/* ---------- molecule card ---------- */
+function molSVG(m){
+  let seed=0; for(const ch of (m?m.name:"X")) seed=(seed*31+ch.charCodeAt(0))%9973; seed=seed||7;
+  const r=()=>{seed=(seed*16807)%2147483647; return seed/2147483647;};
+  const pts=[]; for(let i=0;i<6;i++){const a=i*Math.PI/3; pts.push([42+20*Math.cos(a),42+20*Math.sin(a)]);}
+  let s=`<polygon points="${pts.map(p=>p.join(",")).join(" ")}" fill="none" stroke="var(--ink)" stroke-width="2.5"/>`;
+  for(let i=0;i<3;i++){const p=pts[Math.floor(r()*6)]; const a=Math.atan2(p[1]-42,p[0]-42); const q=[p[0]+16*Math.cos(a),p[1]+16*Math.sin(a)];
+    s+=`<line x1="${p[0]}" y1="${p[1]}" x2="${q[0]}" y2="${q[1]}" stroke="var(--ink)" stroke-width="2.5"/>`;
+    s+=`<circle cx="${q[0]}" cy="${q[1]}" r="5" fill="var(${["--rd","--clin","--reg","--mkt"][Math.floor(r()*4)]})" stroke="var(--ink)" stroke-width="1.5"/>`;}
+  return `<svg viewBox="0 0 84 84" aria-hidden="true">${s}</svg>`;
+}
+function molCard(m){
+  const tags=[];
+  if(m.peds) tags.push(`<span class="tag good">Pediatric · voucher‑eligible</span>`);
+  if(S.biomarker) tags.push(`<span class="tag">Biomarker label</span>`);
+  if(S.partner) tags.push(`<span class="tag fin">50/50 partner</span>`);
+  if(S.outl) tags.push(`<span class="tag fin">Licensed out · ${S.outl.roy}% royalty</span>`);
+  S.royOut.forEach(r=>tags.push(`<span class="tag fin">${esc(r.name)} ${r.pct}%</span>`));
+  if(S.funded) tags.push(`<span class="tag fin">Phase III funded</span>`);
+  const mk=Math.min(100,(m.mkt||1)/3*100);
+  return `<div class="mol">${molSVG(m)}<div style="display:grid;gap:6px;min-width:0">
+    <h3>${esc(m.name)}</h3><span class="muted small">${esc(C.TARGETS[m.target].n)} · ${esc(C.MODS[m.mod].n)} · ${esc(C.AREAS[m.area].n)}</span>
+    <div class="bars">
+      <div class="bar" style="--c:var(--mkt)"><span>Efficacy</span><div class="tr"><i style="width:${m.eff}%"></i></div><b class="mono">${m.eff}</b></div>
+      <div class="bar" style="--c:var(--clin)"><span>Safety</span><div class="tr"><i style="width:${m.saf}%"></i></div><b class="mono">${m.saf}</b></div>
+      <div class="bar" style="--c:var(--reg)"><span>Market size</span><div class="tr"><i style="width:${mk}%"></i></div><b class="mono">${(m.mkt||1).toFixed((m.mkt||1)<1?2:1)}×</b></div>
+    </div>
+    <span class="small muted">${mktLabel(m.mkt||1)} indication${m.mkt<.8?" — consider re‑screening for a bigger market":""}</span>
+    ${tags.length?`<div class="tags">${tags.join("")}</div>`:""}</div></div>`;
+}
+function valueLine(){
+  if(!C.alive(S)) return "";
+  const v=C.rnpv(S,false), p=C.pApproval(S);
+  return `<p class="small"><b>Risk‑adjusted value (rNPV): <span class="mono" style="color:${v>=0?'var(--good)':'var(--bad)'}">${fm(v)}</span></b> · approval odds from here <span class="mono">${pc(p)}</span>${v<0?" · <span style='color:var(--bad)'>value‑destroying at current terms: investors and lenders will hesitate</span>":""}</p>`;
+}
+
+/* ---------- action panel ---------- */
+function renderAction(){
+  if(S.over) return renderEnd();
+  const k=C.tk(S);
+  if(S.dead) return renderDead();
+  if(k==="lab") return renderLab();
+  if(C.DEV.includes(k)) return renderTrial();
+  if(k==="launch") return renderLaunch();
+  if(/^y[1-5]$/.test(k)) return renderYear();
+  if(k==="mature") return renderMature();
+  if(k==="loe") return renderLOE();
+}
+function renderLab(){
+  const P=S.pick, m=S.mol, locked=!!m;
+  const grp=(key,obj,label,dis)=>`<div class="choice-group"><span class="kicker">${label}</span><div class="choices">${Object.entries(obj).map(([kk,v])=>{
+     const off = locked || (dis && dis(kk));
+     return `<button class="choice" data-g="${key}" data-k="${kk}" aria-pressed="${P[key]===kk}" ${off?"disabled":""}><b>${esc(v.n)}</b><small>${esc(v.d)}</small></button>`;}).join("")}</div></div>`;
+  $("#action").innerHTML = `
+   <div class="panel-head"><h2>The Lab</h2><span class="kicker">Discovery · molecule #${S.molN+(m?0:1)}</span></div>
+   <p class="muted">Pick a target, modality and disease area, then screen for a candidate. The screen reveals efficacy, safety and how big the indication is. Re‑screen or optimise before you commit.</p>
+   ${grp("target",C.TARGETS,"1 · Target biology")}
+   ${grp("mod",C.MODS,"2 · Modality", kk=>kk==="adc" && P.area!=="onc")}
+   ${P.area!=="onc"?`<span class="small muted" style="margin-top:-8px">ADCs are almost only used in cancer, so they unlock with Oncology.</span>`:""}
+   ${grp("area",C.AREAS,"3 · Disease area")}
+   ${m?molCard(m)+valueLine():""}
+   <div class="row">
+     ${m?`<button class="btn go" id="nominate">Nominate candidate →</button>
+          <button class="btn" id="optimise" ${S.opt>=3||S.cash<C.COST.opt?"disabled":""}>Optimise · $${C.COST.opt}M · 0.5 yr (${3-S.opt} left)</button>
+          <button class="btn ghost" id="discard">Shelve and re‑screen</button>`
+        :`<button class="btn go" id="screen" ${S.cash<C.COST.lab?"disabled":""}>Run screen · $${C.COST.lab}M · 2 yrs</button>
+          <button class="btn" id="license" ${S.cash<C.COST.inlic?"disabled":""}>In‑license a Phase II asset · $${C.COST.inlic}M</button>`}
+   </div>
+   ${m?"":`<p class="small muted">In‑licensing skips to Phase II, as big pharma does with biotech deals: $150M now, $100M on approval and a 10% royalty to the licensor.</p>`}`;
+  document.querySelectorAll(".choice").forEach(b=>b.onclick=()=>{
+    if(locked) return; P[b.dataset.g]=b.dataset.k;
+    if(P.area!=="onc" && P.mod==="adc") P.mod="sm";
+    render(); });
+  const on=(id,f)=>{ const el=$("#"+id); if(el) el.onclick=f; };
+  on("screen",()=>{ C.screen(S); render(); });
+  on("license",()=>{ C.inLicense(S); render(); });
+  on("optimise",()=>{ C.optimise(S); render(); });
+  on("discard",()=>{ C.discard(S); render(); });
+  on("nominate",()=>{ C.nominate(S); render(); });
+}
+const FAIL = {pre:"Toxicity in animal studies.",p1:"Unacceptable side effects in first‑in‑human dosing.",p2:"No meaningful efficacy versus placebo, the most common failure point in real pipelines.",p3:"Missed the primary endpoint in the pivotal trial.",reg:"Regulators judged the benefit–risk insufficient."};
+function renderDead(){
+  const k=C.tk(S), t=S.trial;
+  $("#action").innerHTML = `
+   <div class="panel-head"><h2>${esc(C.TILES[S.stage].n)}: program failed</h2><span class="kicker">${esc(S.mol?S.mol.name:"")}</span></div>
+   <div class="dice-zone"><div class="die ko">${t?t.r:"✕"}</div><div style="display:grid;gap:6px;min-width:0">
+     ${t?`<span class="verdict ko">Rolled ${t.r}, needed ${t.p} or less.</span>`:`<span class="verdict ko">Program stopped.</span>`}
+     <span class="muted">${esc(FAIL[k]||"")}</span>
+     <span class="small muted">About 92% of programs entering Phase I never reach approval. Companies survive by taking many shots on goal.</span>
+   </div></div>
+   <div class="row"><button class="btn go" id="lab">Back to the lab</button></div>`;
+  $("#lab").onclick=()=>{ C.backToLab(S); render(); };
+}
+function renderTrial(){
+  const k=C.tk(S), m=S.mol, T=C.TILES[S.stage];
+  const p=C.odds(S,k), c=C.myCost(S,k), full=C.fullCost(S,k), d=C.dur(S,k);
+  const cards=[];
+  if((k==="p2"||k==="p3") && !S.outl) cards.push({id:"bio",on:S.biomarker,dis:S.bioLock,t:"Trial design",n:"Biomarker patient selection",d:"Enrol only likely responders. Phase II odds ×1.64, Phase III ×1.19, cost +20%, label 30% narrower.",c:"--clin"});
+  if(k==="reg" && !S.outl) cards.push({id:"prio",on:S.priority,dis:!C.priorityEligible(S),t:"Regulatory",n:"Request priority review",d:m.eff>=70?"Eligible (efficacy ≥70): review 0.4 yr shorter and a faster launch.":"Needs efficacy of 70 or more.",c:"--reg"});
+  const res=S.trial;
+  $("#action").innerHTML = `
+   <div class="panel-head"><h2>${esc(T.n)}</h2><span class="kicker">${S.outl?"Run by your licensee":k==="reg"?"Regulatory review":k==="pre"?"Preclinical":"Clinical development"}</span></div>
+   ${molCard(m)}
+   ${valueLine()}
+   ${S.ev?`<div class="event"><b>Event · ${esc(S.ev.t)}</b>${esc(S.ev.d)}</div>`:""}
+   <div class="odds">
+     <div><span>Success odds</span><b>${p}%</b></div>
+     <div><span>Your cost</span><b>${fm(c)}</b></div>
+     <div><span>Duration</span><b>${d} yrs</b></div>
+     <div><span>Industry base</span><b>${k==="pre"?C.PRE_BASE:C.AREAS[m.area].ph[k]}%</b></div>
+   </div>
+   ${c!==full?`<p class="small muted">Full cost ${fm(full)}; ${S.outl?"your licensee pays all of it":S.funded&&k==="p3"?"your R&D funder pays it":"your partner pays half"}.</p>`:""}
+   ${cards.length && !res ? `<div class="choice-group"><span class="kicker">Play a card before rolling (optional)</span><div class="cards">${cards.map(cd=>`<button class="pcard" data-c="${cd.id}" style="--c:var(${cd.c})" aria-pressed="${!!cd.on}" ${cd.dis?"disabled":""}><span class="t">${esc(cd.t)}</span><b>${esc(cd.n)}</b><small>${esc(cd.d)}</small></button>`).join("")}</div></div>`:""}
+   <div class="dice-zone">
+     <div class="die ${res?(res.ok?'ok':'ko'):''}" id="die">${res?res.r:"d100"}</div>
+     <div style="display:grid;gap:8px;min-width:0">
+       ${res ? `<span class="verdict ok">Success. Rolled ${res.r}, needed ${res.p} or less, after ${res.d} years.</span>
+                <div class="row"><button class="btn go" id="next">${k==="reg"?"Approved → launch":"Advance →"}</button></div>`
+             : `<span class="muted">Roll ${p} or less to pass. ${S.outl?"The licensee pays.":`You pay ${fm(c)} now and the clock runs ${d} years (loan interest accrues).`}</span>
+                <div class="row"><button class="btn go" id="roll" ${S.cash<c?"disabled":""}>${S.outl?"Watch the readout":`Fund &amp; roll · ${fm(c)}`}</button>
+                ${S.outl?"":`<button class="btn ghost" id="abandon">Abandon program</button>`}</div>
+                ${S.cash<c?`<span class="verdict ko">Short by ${fm(c-S.cash)}. Use the finance desk.</span>`:""}`}
+     </div>
+   </div>`;
+  document.querySelectorAll(".pcard").forEach(b=>b.onclick=()=>{ if(b.dataset.c==="bio") C.toggleBiomarker(S); else C.togglePriority(S); render(); });
+  const on=(id,f)=>{ const el=$("#"+id); if(el) el.onclick=f; };
+  on("roll", doRoll);
+  on("next",()=>{ C.next(S); render(); });
+  on("abandon",()=>{ C.abandon(S); render(); });
+}
+function doRoll(){
+  if(animating) return;
+  const res=C.roll(S); if(!res) return;
+  const die=$("#die"), btn=$("#roll"); if(btn) btn.disabled=true;
+  if(reduce || !die){ render(); return; }
+  animating=true; let n=0;
+  const iv=setInterval(()=>{ die.textContent=1+Math.floor(Math.random()*100); if(++n>14){ clearInterval(iv); animating=false; render(); } },55);
+}
+function renderLaunch(){
+  const m=S.mol, a=C.AREAS[m.area], need=C.needNow(S);
+  $("#action").innerHTML = `
+   <div class="panel-head"><h2>Approved: launch</h2><span class="kicker">Regulatory &amp; launch</span></div>
+   ${molCard(m)}
+   ${valueLine()}
+   <p>${esc(m.name)} is approved in ${esc(a.n.toLowerCase())}. List price about <b>$${a.price}k per patient‑year</b>; the indication is ${mktLabel(m.mkt).toLowerCase()} (${m.mkt.toFixed(m.mkt<1?2:1)}× average).${S.biomarker?" Biomarker label: 30% fewer eligible patients.":""}</p>
+   ${S.outl?`<p class="muted">Your licensee funds the launch. You collect ${S.outl.roy}% of net sales.</p>`
+           :`<p class="muted">Launch readiness (field force, payer dossiers, patient hub, supply) costs ${fm(C.launchCost(S))}${C.msOutSum(S)?` and approval milestones of ${fm(C.msOutSum(S))} fall due now`:""}.</p>`}
+   ${m.peds && !S.outl?`<p class="small"><b>A priority review voucher is now yours to sell on the finance desk.</b></p>`:""}
+   <div class="row"><button class="btn go" id="go" ${S.cash<need?"disabled":""}>${S.outl?"Licensee launches →":`Fund launch · ${fm(need)} →`}</button>
+   ${S.cash<need?`<span class="verdict ko">Short by ${fm(need-S.cash)}.</span>`:""}</div>`;
+  $("#go").onclick=()=>{ C.launch(S); draft=null; render(); };
+}
+const LEVERS=[
+ {k:"reps",n:"Field sales reps",max:300,step:10,d:"Face‑to‑face visits. Main driver of prescriber adoption and NBRx, with diminishing returns."},
+ {k:"msl",n:"Medical (MSL) & KOLs",max:150,step:10,d:"Scientific exchange. Saturates fast; strongest in oncology and rare disease and for high‑efficacy drugs."},
+ {k:"digital",n:"Omnichannel digital",max:200,step:10,d:"Emails, webinars, portals. Cheap reach, strongest in broad primary‑care markets."},
+ {k:"rebate",n:"Payer rebates (GTN)",max:.6,step:.05,pct:true,d:"Discounts to payers buy formulary coverage, which gates every new start, but cut your net price."},
+ {k:"support",n:"Patient support",max:150,step:10,d:"Copay help, nurse calls, adherence programs. Raises persistence, cuts discontinuation."}
+];
+function preview(L){
+  return C.marketStep({mol:S.mol,A:S.A,active:S.active,biomarker:S.biomarker,licensee:!!S.outl},L,S.ev);
+}
+function renderYear(){
+  const k=C.tk(S), yi=+k.slice(1), m=S.mol;
+  if(!draft) draft=Object.assign({},S.levers);
+  const L = S.outl ? C.suggestLevers(m) : draft;
+  const pv=preview(L), cost=C.marketCost(S,L);
+  const profit = C.playerCF(S,pv.rev,pv.spend);
+  const pvHTML = `<div class="preview">
+     <div><span>Sales</span><b>${fm(pv.rev)}</b></div>
+     <div><span>${S.outl?"Royalty":"Your profit"}</span><b style="color:${profit>=0?'var(--good)':'var(--bad)'}">${fm(profit)}</b></div>
+     <div><span>NBRx</span><b>${pv.nbrx.toFixed(1)}k</b></div>
+     <div><span>Coverage</span><b>${pc(pv.cov)}</b></div>
+     <div><span>Persistence</span><b>${pc(pv.pers)}</b></div></div>`;
+  $("#action").innerHTML = `
+   <div class="panel-head"><h2>Market year ${yi} of 13</h2><span class="kicker">Commercial · ${esc(m.name)}</span></div>
+   ${S.ev?`<div class="event"><b>Event · ${esc(S.ev.t)}</b>${esc(S.ev.d)}</div>`:""}
+   ${S.outl ? `<p>Your licensee runs the brand with a big‑pharma playbook. You receive ${S.outl.roy}% of net sales${S.outl.salesPaid||!S.outl.salesMs?"":` and ${fm(S.outl.salesMs)} the first year sales pass $1B`}.</p>`
+            : `<p class="muted">Set this year's commercial plan. The preview updates as you move the sliders.</p>
+   <div class="levers">${LEVERS.map(l=>`<div class="lever"><label for="l_${l.k}"><span>${esc(l.n)}</span><output id="o_${l.k}">${l.pct?pc(draft[l.k]):fm(draft[l.k])}</output></label><input type="range" id="l_${l.k}" min="0" max="${l.max}" step="${l.step}" value="${draft[l.k]}"><small>${esc(l.d)}</small></div>`).join("")}</div>
+   <div class="row"><button class="btn sm" id="suggest">Use suggested plan</button><span class="small muted">Spend ${fm(cost)}${S.partner?" (your half)":""}</span></div>`}
+   <div id="pv">${pvHTML}</div>
+   <div class="row"><button class="btn go" id="run" ${S.cash<cost?"disabled":""}>${S.outl?`Next year →`:`Run year ${yi} →`}</button>
+   ${S.cash<cost?`<span class="verdict ko">Short by ${fm(cost-S.cash)}. Cut spend or use the finance desk.</span>`:""}</div>`;
+  if(!S.outl){
+    LEVERS.forEach(l=>{ $("#l_"+l.k).oninput=e=>{ draft[l.k]=+e.target.value; $("#o_"+l.k).textContent=l.pct?pc(draft[l.k]):fm(draft[l.k]);
+      const p2=preview(draft), c2=C.marketCost(S,draft), pr2=C.playerCF(S,p2.rev,p2.spend);
+      $("#pv").innerHTML=`<div class="preview"><div><span>Sales</span><b>${fm(p2.rev)}</b></div><div><span>Your profit</span><b style="color:${pr2>=0?'var(--good)':'var(--bad)'}">${fm(pr2)}</b></div><div><span>NBRx</span><b>${p2.nbrx.toFixed(1)}k</b></div><div><span>Coverage</span><b>${pc(p2.cov)}</b></div><div><span>Persistence</span><b>${pc(p2.pers)}</b></div></div>`;
+      $("#run").disabled = S.cash < c2; }; });
+    $("#suggest").onclick=()=>{ draft=C.suggestLevers(m); render(); };
+  }
+  $("#run").onclick=()=>{ if(C.runYear(S, S.outl?null:draft)){ draft=Object.assign({},S.levers); render(); } };
+}
+function renderMature(){
+  const m=S.mol;
+  $("#action").innerHTML = `
+   <div class="panel-head"><h2>Years 6–13: mature brand</h2><span class="kicker">Commercial</span></div>
+   <p>Most drugs peak around years 5–8. Later entrants and next‑generation drugs then erode share. The brand runs on a maintenance budget (60% of your last plan, same rebates) until exclusivity ends.</p>
+   ${valueLine()}
+   <div class="row"><button class="btn go" id="run">Run years 6–13 →</button></div>`;
+  $("#run").onclick=()=>{ C.runMature(S); render(); };
+}
+function renderLOE(){
+  const m=S.mol;
+  $("#action").innerHTML = `
+   <div class="panel-head"><h2>Loss of exclusivity</h2><span class="kicker">Generics</span></div>
+   <p>${m.mod==="sm"?"Generic copies arrive. One year after first generic entry, brands keep about 20% of unit volume.":"Biosimilars arrive. Erosion is slower, but deep discounting still removes much of net sales."}</p>
+   <div class="row"><button class="btn go" id="go">Face generics and close the books →</button></div>`;
+  $("#go").onclick=()=>{ C.finish(S); render(); };
+}
+function renderEnd(){
+  const e=S.end, pct=percentile(e.moic);
+  const title = e.type==="bankrupt" ? "Insolvent" : e.moic>=4 ? "Legendary exit" : e.moic>=1.5 ? "Strong return" : e.moic>=1 ? "Capital returned" : e.moic>=.3 ? "Partial loss" : "Wiped out";
+  $("#action").innerHTML = `<div class="end">
+    <span class="kicker">Game over · ${esc(e.type==="complete"?"product life cycle complete":e.type)}</span>
+    <div class="big">${esc(title)}</div>
+    <div class="end-grid">
+      <div><span>Your final stake</span><b>${fm(e.stake)}</b></div>
+      <div><span>Multiple on $800M</span><b>${e.moic.toFixed(2)}×</b></div>
+      <div><span>You owned</span><b>${pc(e.own)}</b></div>
+      <div><span>Years played</span><b>${e.years.toFixed(1)}</b></div>
+    </div>
+    <p>You beat <b>${pct}%</b> of 12,000 simulated companies.${S.approved?` Peak sales ${fm(e.peak)}: a <b>${esc(peakCat(e.peak))}</b>.`:" No drug reached the market."}</p>
+    <p class="muted small" style="max-width:62ch">The median simulated company ends with 0.45× its starting money and the top 10% with more than 4×. That skew mirrors the real industry, where a few blockbusters pay for many failures.</p>
+    <button class="btn go" id="again">Play again</button></div>`;
+  $("#again").onclick=()=>{ S=C.newGame(); draft=null; windArm=false; render(); };
+}
+
+/* ---------- finance desk ---------- */
+function renderFinance(){
+  const box=$("#finance");
+  if(S.over){ box.innerHTML=`<div class="panel-head"><h2>Finance desk</h2></div><p class="muted">Closed. Start a new game to raise money again.</p>`; return; }
+  const need=C.needNow(S), short=Math.max(0,need-S.cash), offs=C.offers(S);
+  const ok=offs.filter(o=>o.ok), no=offs.filter(o=>!o.ok);
+  const stuck = short>0 && C.stuck(S);
+  const canAbandon = C.alive(S) && C.DEV.includes(C.tk(S)) && !S.trial && !S.outl;
+  box.innerHTML = `
+   <div class="panel-head"><h2>Finance desk</h2><span class="kicker">${ok.length} option${ok.length===1?"":"s"} open</span></div>
+   <div class="need ${need===0?"":short>0?"short":"ok"}"><span>${need>0?`Next step needs <b class="mono">${fm(need)}</b>`:"Nothing due right now"}</span><span>Cash <b class="mono">${fm(S.cash)}</b>${short>0?` · short <b class="mono">${fm(short)}</b>`:""}</span></div>
+   ${stuck?`<div class="stuck"><b>No offer covers the gap.</b><span class="small">${canAbandon?"Abandon this program to stop spending and return to the lab, or wind the company down.":"Wind the company down and return what is left to shareholders."}</span>
+      <div class="row">${canAbandon?`<button class="btn sm" data-act="abandon">Abandon program</button>`:""}<button class="btn sm" data-act="wind">Wind down</button></div></div>`:""}
+   ${ok.map(o=>`<div class="offer"><h3>${esc(o.t)}</h3><div class="terms">${esc(o.terms)}</div>
+      <div class="row">${o.choices.map(c=>`<button class="btn sm fin" data-offer="${o.id}" data-v="${c.v}">${esc(c.label)}</button>`).join("")}</div>
+      ${o.ex?`<div class="ex">Real example: ${esc(o.ex)}</div>`:""}</div>`).join("")}
+   ${no.length?`<details><summary class="small">Not available now (${no.length})</summary><div class="unavail">${no.map(o=>`<div><b>${esc(o.t)}.</b> ${esc(o.why)}</div>`).join("")}</div></details>`:""}
+   <div class="row" style="justify-content:flex-end">${windArm?`<span class="small">Return remaining cash and end the game?</span><button class="btn sm" data-act="wind">Yes, wind down</button><button class="btn sm ghost" data-act="cancel">Cancel</button>`:`<button class="btn sm ghost" data-act="arm">Wind down company…</button>`}</div>`;
+}
+$("#finance").addEventListener("click", e=>{
+  const b=e.target.closest("button"); if(!b) return;
+  if(b.dataset.offer){ C.take(S,b.dataset.offer,+b.dataset.v); windArm=false; render(); return; }
+  const act=b.dataset.act;
+  if(act==="arm"){ windArm=true; renderFinance(); }
+  else if(act==="cancel"){ windArm=false; renderFinance(); }
+  else if(act==="wind"){ C.windDown(S); windArm=false; render(); }
+  else if(act==="abandon"){ C.abandon(S); render(); }
+});
+
+render();
+})();
+</script>
+</body>
+</html>
